@@ -24,7 +24,8 @@ function logIncomingRequest(req, res, next) {
 app.use(logIncomingRequest);
 
 app.get('/', (req, res) => {
-    res.send('aaya');
+    res.send("Check the console for logs, or visit the '/totalReq' route to see the total number of requests.");
+
 });
 
 app.get('/totalReq', (req, res) => {
