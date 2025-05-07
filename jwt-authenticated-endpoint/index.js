@@ -1,102 +1,82 @@
 const express = require("express");
-
 const jwt = require("jsonwebtoken");
 
 const app = express();
-
 app.use(express.json());
 
 const users = [];
+const JWT_SECRET = "science"; 
 
-const JWT_SECRET = "science";
-
-app.post("/signup", function (req, res) {
-    const username = req.body.username;
-    const password = req.body.password;
-
-    if(!username || !password){
-        return res.json({
-            message: "Please fill both username and password!",
-        });
-    }
-
-    if (users.find((user) => user.username === username)) {
-        return res.json({
-            message: "You are already signed up!",
-        });
-    }
-
-    if (username.length < 5) {
-        return res.json({
-            message: "You need to have at least 5 users to sign up",
-        });
-    }
-
-    users.push({
-        username: username,
-        password: password,
-    });
-
-    res.json({
-        message: "You have signed up successfully!",
-    });
-});
-
-app.post("/signin", function (req, res) {
-    const username = req.body.username;
-    const password = req.body.password;
-
-    if(!username || !password){
-        return res.json({
-            message: "Please fill both username and password!",
-        });
-    }
-
-    const foundUser = users.find((user) => user.username === username && user.password === password);
-
-    if (foundUser) {
-        const token = jwt.sign(
-            {
-                username: foundUser.username,
-            },
-            JWT_SECRET
-        );
-
-        return res.json({
-            token: token,
-            message: "You have signed in successfully!",
-        });
-    } else {
-        return res.json({
-            message: "Invalid username or password!",
-        });
-    }
-});
-
-app.get("/mystuff", function (req, res) {
+function auth(req, res, next) {
     const token = req.headers.authorization;
 
     if (!token) {
-        return res.json({
-            message: "Token is missing!",
-        });
+        return res.status(401).json({ message: "Token is missing!" });
     }
 
-    const userDetails = jwt.verify(token, JWT_SECRET);
+    jwt.verify(token, JWT_SECRET, (err, decoded) => {
+        if (err) {
+            return res.status(401).json({ message: "Unauthorized. Invalid token." });
+        }
 
-    const foundUser = users.find((user) => user.username === userDetails.username);
+        const user = users.find(u => u.username === decoded.username);
 
-    if (foundUser) {
-        return res.json({
-            username: foundUser.username,
-            password: foundUser.password,
-            message: "you are authenticated with your authorization!",
-        });
-    } else {
-        return res.json({
-            message: "Invalid token!",
-        });
+        if (!user) {
+            return res.status(401).json({ message: "User not found. Invalid token." });
+        }
+
+        req.user = user;
+        next();
+    });
+}
+
+app.post("/signup", (req, res) => {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+        return res.status(400).json({ message: "Username and password are required!" });
     }
+
+    if (username.length < 5) {
+        return res.status(400).json({ message: "Username must be at least 5 characters long." });
+    }
+
+    const userExists = users.find(u => u.username === username);
+
+    if (userExists) {
+        return res.status(409).json({ message: "User already exists!" });
+    }
+
+    users.push({ username, password });
+
+    return res.status(201).json({ message: "Signup successful!" });
 });
 
-app.listen(3000);
+app.post("/signin", (req, res) => {
+    const { username, password } = req.body;
+
+    if (!username || !password) {
+        return res.status(400).json({ message: "Username and password are required!" });
+    }
+
+    const user = users.find(u => u.username === username && u.password === password);
+
+    if (!user) {
+        return res.status(401).json({ message: "Invalid username or password!" });
+    }
+
+    const token = jwt.sign({ username: user.username }, JWT_SECRET);
+
+    return res.status(200).json({
+        message: "Signin successful!",
+        token,
+    });
+});
+
+app.get("/mystuff", auth, (req, res) => {
+    res.send(`Your password is: ${req.user.password}`);
+});
+
+app.listen(3000, () => {
+    console.log("Server running on http://localhost:3000");
+});
