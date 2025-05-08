@@ -72,6 +72,21 @@ function auth (req,res,next){
     })
 }
 
+app.get('/todos', auth, (req, res) => {
+    const username = req.username;
+
+    const currentUser = users.find(user => user.username === username);
+
+    if (!currentUser || !currentUser.todos) {
+        return res.status(404).json({ message: "User or todos not found" });
+    }
+
+    res.send({
+        todos: currentUser.todos
+    });
+});
+
+
 app.post('/create-todo', auth, (req,res)=>{
     const username = req.username
     const todo = req.body.todo
@@ -92,6 +107,63 @@ res.send({
     currentUser: currentUser
 })
 })
+
+app.delete('/delete-todo/:id', auth, (req,res)=>{
+    const username = req.username
+    const todoId = parseInt(req.params.id);
+    if(!todoId){
+        return res.status(400).json({ message: "To delete todo, please write todo id in url!" });
+    }
+
+    const currentUser = users.find(user => user.username === username);
+
+    if (!currentUser || !currentUser.todos) {
+        return res.status(404).json({ message: "User or todos not found" });
+    }
+
+    const initialLength = currentUser.todos.length;
+
+    currentUser.todos = currentUser.todos.filter(todo => todo.id !== todoId);
+
+    if (currentUser.todos.length === initialLength) {
+        return res.status(404).json({ message: "Todo not found" });
+    }
+
+    res.send({
+        message: "Todo deleted successfully",
+        currentUser: currentUser
+    });
+})
+
+app.put('/update-todo/:id', auth, (req, res) => {
+    const username = req.username;
+    const todoId = parseInt(req.params.id);
+    const newTodoText = req.body.todoText;
+
+    if (!todoId || !newTodoText) {
+        return res.status(400).json({ message: "Please provide todo ID and new todo text!" });
+    }
+
+    const currentUser = users.find(user => user.username === username);
+
+    if (!currentUser || !currentUser.todos) {
+        return res.status(404).json({ message: "User or todos not found" });
+    }
+
+    const todoToUpdate = currentUser.todos.find(todo => todo.id === todoId);
+
+    if (!todoToUpdate) {
+        return res.status(404).json({ message: "Todo not found" });
+    }
+
+    todoToUpdate.todo = newTodoText;
+
+    res.send({
+        message: "Todo updated successfully",
+        currentUser: currentUser
+    });
+});
+
 
 app.listen(3000, ()=>{
     console.log("Server started listing!");

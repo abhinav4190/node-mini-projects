@@ -1,11 +1,162 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Todo App</title>
+  <meta charset="UTF-8" />
+  <title>Todo App</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f4f4f4;
+    }
+
+    input {
+      margin: 5px;
+      padding: 8px;
+    }
+
+    button {
+      margin: 5px;
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    li {
+      background: white;
+      padding: 10px;
+      margin: 5px 0;
+      border: 1px solid #ddd;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    li span[contenteditable="true"] {
+     border-bottom: 1px dotted #888;
+     cursor: text;
+}
+  </style>
 </head>
 <body>
-    <h1>Todo App</h1>
+  <div id="auth">
+    <h2>Signup</h2>
+    <input id="signup-username" placeholder="Username" />
+    <input id="signup-password" type="password" placeholder="Password" />
+    <button onclick="signup()">Signup</button>
+
+    <h2>Signin</h2>
+    <input id="signin-username" placeholder="Username" />
+    <input id="signin-password" type="password" placeholder="Password" />
+    <button onclick="signin()">Signin</button>
+  </div>
+
+  <div id="todo-app" style="display: none;">
+    <h2>Welcome to Todo App</h2>
+    <input id="new-todo" placeholder="Enter new todo" />
+    <button onclick="createTodo()">Add Todo</button>
+    <ul id="todo-list"></ul>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script>
+    const BASE_URL = "http://localhost:3000";
+
+    async function signup() {
+      const username = document.getElementById("signup-username").value;
+      const password = document.getElementById("signup-password").value;
+
+      try {
+        const res = await axios.post(`${BASE_URL}/signup`, { username, password });
+        alert(res.data.message);
+      } catch (err) {
+        alert(err.response.data.message);
+      }
+    }
+
+    async function signin() {
+      const username = document.getElementById("signin-username").value;
+      const password = document.getElementById("signin-password").value;
+
+      try {
+        const res = await axios.post(`${BASE_URL}/signin`, { username, password });
+        alert(res.data.message);
+        localStorage.setItem("token", res.data.token);
+        document.getElementById("auth").style.display = "none";
+        document.getElementById("todo-app").style.display = "block";
+        fetchTodos();
+      } catch (err) {
+        alert(err.response.data.message);
+      }
+    }
+
+    async function fetchTodos() {
+      try {
+        const res = await axios.get(`${BASE_URL}/todos`, {
+          headers: { token: localStorage.getItem("token") },
+        });
+
+        const todos = res.data.todos || [];
+        const todoList = document.getElementById("todo-list");
+        todoList.innerHTML = "";
+
+        todos.forEach((todo) => {
+          const li = document.createElement("li");
+          li.innerHTML = `
+            <span contenteditable="true" onblur="updateTodo(${todo.id}, this.innerText)">${todo.todo}</span>
+            <button onclick="deleteTodo(${todo.id})">❌</button>
+          `;
+          todoList.appendChild(li);
+        });
+      } catch (err) {
+        alert(err.response.data.message);
+      }
+    }
+
+    async function createTodo() {
+      const todo = document.getElementById("new-todo").value;
+
+      if (!todo.trim()) return alert("Write something!");
+
+      try {
+        await axios.post(
+          `${BASE_URL}/create-todo`,
+          { todo },
+          { headers: { token: localStorage.getItem("token") } }
+        );
+        document.getElementById("new-todo").value = "";
+        fetchTodos();
+      } catch (err) {
+        alert(err.response.data.message);
+      }
+    }
+
+    async function deleteTodo(id) {
+      try {
+        await axios.delete(`${BASE_URL}/delete-todo/${id}`, {
+          headers: { token: localStorage.getItem("token") },
+        });
+        fetchTodos();
+      } catch (err) {
+        alert(err.response.data.message);
+      }
+    }
+
+    async function updateTodo(id, newText) {
+      try {
+        await axios.put(
+          `${BASE_URL}/update-todo/${id}`,
+          { todoText: newText },
+          { headers: { token: localStorage.getItem("token") } }
+        );
+      } catch (err) {
+        alert(err.response.data.message);
+      }
+    }
+  </script>
 </body>
 </html>
